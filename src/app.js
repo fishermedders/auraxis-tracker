@@ -34,6 +34,10 @@ ipcRenderer.on("started_tracking", (event) => {
   $('#currently_tracking').text('yes')
 });
 
+ipcRenderer.on("update_currently_tracking", (event, tracking) => {
+  $('#who_currently_tracking').text(tracking.name + ':' + tracking.id)
+});
+
 $('#toggle_tracking').on('click', function() {
   console.log('test')
   ipcRenderer.send('start_tracking', $('#tracking_name').val())

@@ -10,6 +10,7 @@ import appMenuTemplate from "./menu/app_menu_template";
 import editMenuTemplate from "./menu/edit_menu_template";
 import devMenuTemplate from "./menu/dev_menu_template";
 import createWindow from "./helpers/window";
+const fetch = require("node-fetch");
 
 const { CensusClient } = require('ps2census');
 var mainWindow;
@@ -87,44 +88,53 @@ app.on("window-all-closed", () => {
 */
 
 ipcMain.on('start_tracking', (event, player_name) => {
-  ps2client = new CensusClient('fisher', 'ps2', {
-    streamManager: {
-        subscription: {
-          eventNames: ['all'],
-          characters: ['all'],
-          worlds: ['all'],
+  fetch('http://census.daybreakgames.com/get/ps2:v2/character/?name.first_lower=' + player_name)
+    .then(response => response.json())
+    .then(tracking => {
+      console.log(tracking)
+      mainWindow.webContents.send('update_currently_tracking', {name: player_name, id: tracking.character_list[0].character_id})
+
+      ps2client?.destroy();
+      ps2client = new CensusClient('fisher', 'ps2', {
+        streamManager: {
+            subscription: {
+              eventNames: ['all'],
+              characters: ['all'],
+              worlds: ['all'],
+            }
+        },
+      });
+
+      ps2client.on('ps2Event', (event) => {
+        // Handle the event, for more information see http://census.daybreakgames.com/#websocket-details
+        mainWindow.webContents.send('ps2event',event.raw)
+        if(event.raw?.character_id == tracking.character_list[0].character_id) {
+          console.log(event.raw)
         }
-    },
-  });
-
-  ps2client.on('ps2Event', (event) => {
-    // Handle the event, for more information see http://census.daybreakgames.com/#websocket-details
-    mainWindow.webContents.send('ps2event',event.raw)
-    console.log(event.raw)
-  });
-  // or
-  ps2client.on('facilityControl', (event) => {
-  }); // Note that the event always starts with a lower case letter
-  
-  ps2client.on('subscribed', (subscription) => {
-  }); // Notification of a subscription made by the event stream
-  ps2client.on('duplicate', (event) => {
-  }); // When a duplicate event has been received
-  ps2client.on('ready', () => {
-  }); // Client is ready
-  ps2client.on('reconnecting', () => {
-  }); // Client is reconnecting
-  ps2client.on('disconnected', () => {
-  }); // Client got disconnected
-  ps2client.on('error', (error) => {
-  }); // Error
-  ps2client.on('warn', (error) => {
-  }); // Error, when receiving a corrupt message
-  
-  ps2client.watch();
-  mainWindow.webContents.send('started_tracking')
-  
-  // To terminate the client
-  //client.destroy();
-
+      });
+      // or
+      ps2client.on('facilityControl', (event) => {
+      }); // Note that the event always starts with a lower case letter
+      
+      ps2client.on('subscribed', (subscription) => {
+      }); // Notification of a subscription made by the event stream
+      ps2client.on('duplicate', (event) => {
+      }); // When a duplicate event has been received
+      ps2client.on('ready', () => {
+      }); // Client is ready
+      ps2client.on('reconnecting', () => {
+      }); // Client is reconnecting
+      ps2client.on('disconnected', () => {
+      }); // Client got disconnected
+      ps2client.on('error', (error) => {
+      }); // Error
+      ps2client.on('warn', (error) => {
+      }); // Error, when receiving a corrupt message
+      
+      ps2client.watch();
+      mainWindow.webContents.send('started_tracking')
+      
+      // To terminate the client
+      //client.destroy();
+    })
 });

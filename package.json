@@ -34,6 +34,7 @@
     "bufferutil": "^4.0.6",
     "fs-jetpack": "^4.1.0",
     "jquery": "^3.6.0",
+    "node-fetch": "^1.7.3",
     "ps2census": "^3.3.3",
     "utf-8-validate": "^5.0.9"
   },
