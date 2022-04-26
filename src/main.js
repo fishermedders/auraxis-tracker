@@ -5,11 +5,15 @@
 
 import path from "path";
 import url from "url";
-import { app, Menu, ipcMain, shell } from "electron";
+import { app, Menu, ipcMain, shell, ipcRenderer } from "electron";
 import appMenuTemplate from "./menu/app_menu_template";
 import editMenuTemplate from "./menu/edit_menu_template";
 import devMenuTemplate from "./menu/dev_menu_template";
 import createWindow from "./helpers/window";
+
+const { CensusClient } = require('ps2census');
+var mainWindow;
+var ps2client; //the census client
 
 // Special module holding environment variables which you declared
 // in config/env_xxx.json file.
@@ -45,7 +49,7 @@ app.on("ready", () => {
   setApplicationMenu();
   initIpc();
 
-  const mainWindow = createWindow("main", {
+  mainWindow = createWindow("main", {
     width: 1000,
     height: 600,
     webPreferences: {
@@ -74,4 +78,53 @@ app.on("ready", () => {
 
 app.on("window-all-closed", () => {
   app.quit();
+});
+
+/*
+
+  Planetside 2 Census Work
+
+*/
+
+ipcMain.on('start_tracking', (event, player_name) => {
+  ps2client = new CensusClient('fisher', 'ps2', {
+    streamManager: {
+        subscription: {
+          eventNames: ['all'],
+          characters: ['all'],
+          worlds: ['all'],
+        }
+    },
+  });
+
+  ps2client.on('ps2Event', (event) => {
+    // Handle the event, for more information see http://census.daybreakgames.com/#websocket-details
+    mainWindow.webContents.send('ps2event',event.raw)
+    console.log(event.raw)
+  });
+  // or
+  ps2client.on('facilityControl', (event) => {
+  }); // Note that the event always starts with a lower case letter
+  
+  ps2client.on('subscribed', (subscription) => {
+  }); // Notification of a subscription made by the event stream
+  ps2client.on('duplicate', (event) => {
+  }); // When a duplicate event has been received
+  ps2client.on('ready', () => {
+  }); // Client is ready
+  ps2client.on('reconnecting', () => {
+  }); // Client is reconnecting
+  ps2client.on('disconnected', () => {
+  }); // Client got disconnected
+  ps2client.on('error', (error) => {
+  }); // Error
+  ps2client.on('warn', (error) => {
+  }); // Error, when receiving a corrupt message
+  
+  ps2client.watch();
+  mainWindow.webContents.send('started_tracking')
+  
+  // To terminate the client
+  //client.destroy();
+
 });

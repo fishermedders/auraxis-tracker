@@ -2,21 +2,15 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Electron Boilerplate</title>
+    <title>Auraxis Tracker</title>
   </head>
   <body>
     <div id="app" class="container" style="display: none;">
-      <h1 id="greet"></h1>
-      <p>
-        Welcome to
-        <a href="https://www.electronjs.org/" class="electron-website-link">
-          Electron
-        </a>
-        app running on this <strong id="os"></strong> machine.
-      </p>
-      <p>App author: <strong id="author"></strong></p>
-      <p>Environment: <strong id="env"></strong></p>
-      <p>Electron version: <strong id="electron-version"></strong></p>
+      <p id="global_deaths">Global Kills: <span id="global_death_amount"></span></p>
+      <hr>
+      Currently Tracking: <span id="currently_tracking">no</span>
+      <input type="text" id="tracking_name">
+      <button id="toggle_tracking">Toggle Tracking</button>
     </div>
 
     <script src="app.js"></script>
