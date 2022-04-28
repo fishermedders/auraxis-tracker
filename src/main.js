@@ -15,6 +15,9 @@ const fetch = require("node-fetch");
 const { CensusClient } = require('ps2census');
 var mainWindow;
 var ps2client; //the census client
+var currentlyTracking;
+var userCache = {};
+var api_key;
 
 // Special module holding environment variables which you declared
 // in config/env_xxx.json file.
@@ -79,6 +82,7 @@ app.on("ready", () => {
 
 app.on("window-all-closed", () => {
   app.quit();
+  ps2client?.destroy();
 });
 
 /*
@@ -87,15 +91,31 @@ app.on("window-all-closed", () => {
 
 */
 
-ipcMain.on('start_tracking', (event, player_name) => {
-  fetch('http://census.daybreakgames.com/get/ps2:v2/character/?name.first_lower=' + player_name)
+function checkUsernameCache(id, callback) {
+  if(typeof userCache[id] == "string") {
+    callback(userCache[id])
+  } else {
+    fetch('http://census.daybreakgames.com/s:' + api_key + '/get/ps2:v2/character/?character_id=' + id)
+      .then(response => response.json())
+      .then(user => {
+        console.log(user)
+        userCache[id] = user.character_list[0].name.first
+        callback(user.character_list[0].name.first)
+      })
+  }
+}
+
+ipcMain.on('start_tracking', (event, start_info) => {
+  api_key = start_info.api_key
+  fetch('http://census.daybreakgames.com/s:' + api_key + '/get/ps2:v2/character/?name.first_lower=' + start_info.tracking_name)
     .then(response => response.json())
     .then(tracking => {
       console.log(tracking)
-      mainWindow.webContents.send('update_currently_tracking', {name: player_name, id: tracking.character_list[0].character_id})
+      currentlyTracking = {name: start_info.tracking_name, id: tracking.character_list[0].character_id}
+      mainWindow.webContents.send('update_currently_tracking', currentlyTracking)
 
       ps2client?.destroy();
-      ps2client = new CensusClient('fisher', 'ps2', {
+      ps2client = new CensusClient(api_key, 'ps2', {
         streamManager: {
             subscription: {
               eventNames: ['all'],
@@ -106,12 +126,36 @@ ipcMain.on('start_tracking', (event, player_name) => {
       });
 
       ps2client.on('ps2Event', (event) => {
+        var newEvent = null;
         // Handle the event, for more information see http://census.daybreakgames.com/#websocket-details
-        mainWindow.webContents.send('ps2event',event.raw)
         if(event.raw?.character_id == tracking.character_list[0].character_id) {
-          console.log(event.raw)
+          //console.log(event.raw)
+        }
+        //console.log(event.raw)
+        if(event.raw?.event_name == "Death") {
+          /* if our tracking player killed someone */
+          if(event.raw?.attacker_character_id == currentlyTracking.id) {
+            checkUsernameCache(event.raw?.character_id, (victim_name) => {
+              newEvent = event.raw;
+              newEvent.is_tracked_kill = true;
+              newEvent.character_name = victim_name;
+              console.log(newEvent)
+              mainWindow.webContents.send('ps2event',newEvent)
+            })
+          } else if(event.raw?.character_id == currentlyTracking.id) {
+            checkUsernameCache(event.raw?.character_id, (victim_name) => {
+              checkUsernameCache(event.raw?.attacker_character_id, (attacker_name) => {
+                newEvent = event.raw;
+                newEvent.character_name = victim_name;
+                newEvent.attacker_name = attacker_name;
+                console.log(newEvent)
+                mainWindow.webContents.send('ps2event',newEvent)
+              })
+            })
+          }
         }
       });
+
       // or
       ps2client.on('facilityControl', (event) => {
       }); // Note that the event always starts with a lower case letter
